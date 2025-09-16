@@ -1,1 +1,7 @@
 .idea
+
+# Ignore all subfolders named "input"
+**/input/
+
+# Ignore all .zip files
+*.zip
