@@ -9,13 +9,13 @@ X_train = skrub.var("X_train", pd.read_csv("./input/X_train.csv"))
 y_train = skrub.var("y_train", pd.read_csv("./input/y_train.csv"))
 
 # Merge the sensor data with the target variable
-train_data = X_train.merge(y_train, on="series_id", how="inner")
+train_data = X_train.merge(y_train, on="series_id", how="inner").skb.subsample(n=256)
 
 # Drop non-feature columns
 features = train_data.drop(
     ["surface"], axis=1
 ).skb.mark_as_X()
-features.drop(["row_id", "series_id", "measurement_number", "group_id"], axis=1)
+features = features.drop(["row_id", "series_id", "measurement_number", "group_id"], axis=1)
 labels = train_data["surface"].skb.mark_as_y()
 
 # Normalize the feature data
@@ -44,10 +44,12 @@ print(f"Validation Accuracy: {accuracy}")
 X_test = pd.read_csv("./input/X_test.csv")
 
 # Predict on the test set
-test_predictions = learner.predict(X_test)
+test_predictions = learner.predict({"X": X_test})
 
 # Save the predictions to a CSV file
 submission = pd.DataFrame(
     {"series_id": X_test["series_id"], "surface": test_predictions}
 )
+
+submission.to_csv("./working/submission_skrub.csv", index=False)
 
