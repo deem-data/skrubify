@@ -9,18 +9,21 @@ from time import time
 t0 = time()
 
 # Read dtypes and replace 'float16' with 'float32'
-dtypes_df = pd.read_csv("./input/train_dtypes.csv")
-dtypes = {
-    k: (v if v != "float16" else "float32")
-    for (k, v) in zip(dtypes_df.column, dtypes_df.dtype)
-}
-dtypes = skrub.var("schema", dtypes)
+def read_schema(file):
+    dtypes_df = pd.read_csv(file)
+    return {
+        k: (v if v != "float16" else "float32")
+        for (k, v) in zip(dtypes_df.column, dtypes_df.dtype)
+    }
+
+schema_file = skrub.var("schema", "./input/train_dtypes.csv")
+dtypes = schema_file.skb.apply_func(read_schema)
 t1 = time()
 print("Loaded data schema and start Skrub ML pipeline definition")
 
 # Read and concatenate training data
-file_names = np.ndarray([f"./input/train_{i}.csv" for i in range(10)], dtype=str,)
-file_names_skrub = skrub.var("file_names", file_names).skb.subsample(n=1)
+file_names = np.array([f"./input/train_{i}.csv" for i in range(10)])
+file_names_skrub = skrub.var("file_names", file_names).skb.subsample(n=3)
 
 
 def read_and_concat_frame(names, schema):
@@ -34,6 +37,7 @@ train_df = file_names_skrub.skb.apply_func(read_and_concat_frame, schema=dtypes)
 # Prepare the data
 X = train_df.drop(
     [
+	"id",
         "game_num",
         "event_id",
         "event_time",
@@ -43,6 +47,7 @@ X = train_df.drop(
         "team_B_scoring_within_10sec",
     ],
     axis=1,
+    errors='ignore'
 ).skb.mark_as_X()
 y = train_df[["team_A_scoring_within_10sec", "team_B_scoring_within_10sec"]].skb.mark_as_y()
 
@@ -78,18 +83,14 @@ val_preds = pd.DataFrame(
         "team_B_scoring_within_10sec": val_preds[1][:,1],
     }
 )
+
 # Calculate log loss
 val_log_loss = log_loss(splits["y_test"], val_preds)  # val_log_loss = log_loss(split["y_test"], val_preds)
 print(f"Validation Log Loss: {val_log_loss}")
 t4 = time()
 
 # Predict on test set
-test_dtypes_df = pd.read_csv("./input/test_dtypes.csv")
-test_dtypes = {
-    k: (v if v != "float16" else "float32")
-    for (k, v) in zip(test_dtypes_df.column, test_dtypes_df.dtype)
-}
-test_preds = learner.predict_proba({"file_names":["./input/test.csv"], "schema": test_dtypes})
+test_preds = learner.predict_proba({"file_names":np.array(["./input/test.csv"]), "schema": "./input/test_dtypes.csv"})
 test_preds = pd.DataFrame(
     {
         "team_A_scoring_within_10sec": test_preds[0][:,1],
@@ -98,6 +99,7 @@ test_preds = pd.DataFrame(
 )
 test_preds.to_csv("./working/submission_skrub.csv", index=False)
 t5 = time()
+
 print("Schema      : ", t1 - t0)
 print("Pipeline Def: ", t3 - t1)
 print("Fit & score : ", t4 - t3)
