@@ -64,7 +64,7 @@ t3 = time()
 print("Defined Skrub pipeline")
 
 # Split the data
-splits = preds.skb.train_test_split(test_size=0.3, random_state=42)
+splits = preds.skb.train_test_split(test_size=0.2, random_state=42)
 
 print("Using Skrub learner for training and prediction")
 
