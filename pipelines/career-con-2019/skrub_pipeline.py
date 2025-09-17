@@ -15,7 +15,7 @@ train_data = X_train.merge(y_train, on="series_id", how="inner").skb.subsample(n
 features = train_data.drop(
     ["surface"], axis=1
 ).skb.mark_as_X()
-features = features.drop(["row_id", "series_id", "measurement_number", "group_id"], axis=1)
+features = features.drop(["row_id", "series_id", "measurement_number", "group_id"], axis=1, errors="ignore")
 labels = train_data["surface"].skb.mark_as_y()
 
 # Normalize the feature data
@@ -44,7 +44,7 @@ print(f"Validation Accuracy: {accuracy}")
 X_test = pd.read_csv("./input/X_test.csv")
 
 # Predict on the test set
-test_predictions = learner.predict({"X": X_test})
+test_predictions = learner.predict({"_skrub_X": X_test})
 
 # Save the predictions to a CSV file
 submission = pd.DataFrame(
@@ -52,4 +52,3 @@ submission = pd.DataFrame(
 )
 
 submission.to_csv("./working/submission_skrub.csv", index=False)
-
