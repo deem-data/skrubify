@@ -2,7 +2,9 @@ import pandas as pd
 import lightgbm as lgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import log_loss
+from time import time
 
+t0 = time()
 # Read dtypes and replace 'float16' with 'float32'
 dtypes_df = pd.read_csv("./input/train_dtypes.csv")
 dtypes = {
@@ -84,3 +86,5 @@ test_preds = pd.DataFrame(
 # Prepare submission
 submission = pd.concat([test_df["id"], test_preds], axis=1)
 submission.to_csv("./working/submission.csv", index=False)
+t1 = time()
+print("Total time: ", t1 - t0)
