@@ -32,6 +32,6 @@ test_df = pd.DataFrame({
 os.makedirs("./input", exist_ok=True)
 os.makedirs("./working", exist_ok=True)
 train_df.to_csv("./input/train.csv", index=False)
-test_df.to_csv("./input/X_test.csv", index=False)
+test_df.to_csv("./input/test.csv", index=False)
 
 print("Dummy train.csv and X_test.csv created in ./input/")

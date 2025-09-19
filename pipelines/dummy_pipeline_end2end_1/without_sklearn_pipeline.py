@@ -35,7 +35,7 @@ accuracy = accuracy_score(y_val, y_pred)
 print(f"Validation Accuracy: {accuracy:.4f}")
 
 # Prepare test data
-test_data = pd.read_csv("./input/X_test.csv")
+test_data = pd.read_csv("./input/test.csv")
 test_data["new_feat"] = test_data["feat1"] * test_data["feat2"]
 X_test = test_data.drop(["id", "feat1", "feat3"], axis=1)
 X_test = scaler.transform(X_test)

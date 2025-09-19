@@ -36,7 +36,7 @@ acc = accuracy_score(splits["y_test"], y_pred)
 print(f"Validation Accuracy: {acc:.4f}")
 
 # --- Predict on test ---
-test_data = pd.read_csv("./input/X_test.csv")
+test_data = pd.read_csv("./input/test.csv")
 y_pred_test = learner.predict({"_skrub_X" : test_data})
 
 # --- Save submission ---
