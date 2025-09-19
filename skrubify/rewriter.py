@@ -1,11 +1,11 @@
 import os
 import sys
 from openai import OpenAI
+from importlib import resources
 
-
-SYSTEM_PROMPT = "EMPTY"
-with open("prompt_templates/skrub_rewriter_prompt.txt","r") as f:
-    prompt = f.read()
+SYSTEM_PROMPT = resources.files("skrubify.prompt_templates").joinpath(
+    "skrub_rewriter_prompt.txt"
+).read_text(encoding="utf-8")
 
 
 def rewrite_file(file_path: str, model: str = "gpt-4.1") -> str:

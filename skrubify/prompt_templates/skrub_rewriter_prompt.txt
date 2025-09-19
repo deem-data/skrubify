@@ -15,7 +15,7 @@ Your job:
 1. **Data loading**
 
    * Wrap inputs with `skrub.var("name", <data>)`.
-   * For previews, you may use `.skb.subsample(n=100)`.
+   * Even when skrub is lazy, it computes preview during the plan building, so it's useful to add after`.skb.subsample(n=100)`. E.g. `data = skrub.var("data", some_df).skb.subsample(n=100)`, the sampling is only for the preview and is ignored in final pipeline.
 
 2. **Defining features and labels**
 
@@ -26,6 +26,19 @@ Your job:
 
    * Use normal pandas/sklearn syntax.
    * After each transformation, wrap with `.skb.apply()` when calling sklearn transformers/models.
+   * `.skb.apply` argument must be an Object that implements BaseEstimator from sklearn
+   * for UDF use `.skb.apply_func()`, which gets an function and applies it to the input. E.g. it can be used to merge to model output of multiple models:
+    ```python
+    modelA = (...)
+    modelB = (...)
+    predsA = features.skb.apply(modelA)
+    predsB = features.skb.apply(modelB)
+
+    # step 1: make tuple from two variables
+    preds = predsA.skb.apply_func(lambda a,b: (a,b), b=predsB)
+    # step 2: concat outputs
+    preds = preds.skb.apply_func(np.column_stack)
+    ```
 
 4. **Splitting data**
 
@@ -151,3 +164,6 @@ y_pred_test = learner.predict({"_skrub_X" : test_data})
 submission = pd.DataFrame({"id": test_data["id"], "label": y_pred_test})
 submission.to_csv("./working/submission_skrub.csv", index=False)
 ```
+
+ONLY INCLUDE VALID PYTHON CODE IN YOUR RESPONSE, NO MARKDOWN OR TEXT.
+DONT USE EMOJIS IN THE COMMENTS IN THE CODE.
