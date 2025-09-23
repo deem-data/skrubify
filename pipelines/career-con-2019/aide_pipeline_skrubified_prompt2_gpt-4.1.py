@@ -5,20 +5,20 @@ from sklearn.preprocessing import StandardScaler
 import skrub
 
 # --- Load data ---
-X_train_var = skrub.var("X_train", pd.read_csv("./input/X_train.csv")).skb.subsample(n=100)
-y_train_var = skrub.var("y_train", pd.read_csv("./input/y_train.csv")).skb.subsample(n=100)
-X_test = pd.read_csv("./input/X_test.csv")
+X_train = skrub.var("X_train", pd.read_csv("./input/X_train.csv"))
+y_train = skrub.var("y_train", pd.read_csv("./input/y_train.csv"))
+X_test = skrub.var("X_test", pd.read_csv("./input/X_test.csv"))
 
 # --- Merge sensor data with target variable ---
-train_data = X_train_var.merge(y_train_var, on="series_id", how="inner")
+train_data = X_train.merge(y_train, on="series_id", how="inner")
 
-# --- Drop non-feature columns and mark features/labels ---
+# --- Drop non-feature columns and extract labels ---
 features = train_data.drop(
     ["row_id", "series_id", "measurement_number", "group_id", "surface"], axis=1
 ).skb.mark_as_X()
 labels = train_data["surface"].skb.mark_as_y()
 
-# --- Normalize the feature data ---
+# --- Normalize features ---
 scaler = StandardScaler()
 features_scaled = features.skb.apply(scaler)
 
@@ -40,15 +40,14 @@ y_pred = learner.predict(splits["test"])
 acc = accuracy_score(splits["y_test"], y_pred)
 print(f"Validation Accuracy: {acc}")
 
-# --- Prepare test features (drop non-feature columns) ---
+# --- Prepare test data (drop non-feature columns) ---
 test_features = X_test.drop(["row_id", "series_id", "measurement_number"], axis=1)
-test_features_scaled = scaler.transform(test_features)
 
 # --- Predict on test set ---
-test_predictions = learner.predict({"_skrub_X": test_features})
+test_pred = learner.predict({"_skrub_X": test_features})
 
 # --- Save predictions ---
 submission = pd.DataFrame(
-    {"series_id": X_test["series_id"], "surface": test_predictions}
+    {"series_id": X_test["series_id"], "surface": test_pred}
 )
-submission.to_csv("./working/submission.csv", index=False)
+submission.to_csv("./working/submission_skrub.csv", index=False)

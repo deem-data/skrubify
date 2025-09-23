@@ -3,6 +3,7 @@ import lightgbm as lgb
 from sklearn.metrics import log_loss
 from time import time
 import skrub
+import numpy as np
 
 t0 = time()
 
@@ -14,9 +15,11 @@ dtypes = {
 }
 
 # --- Read and concatenate training data ---
-train_dfs = [pd.read_csv(f"./input/train_{i}.csv", dtype=dtypes) for i in range(10)]
-train_df = pd.concat(train_dfs, ignore_index=True)
-train_df = skrub.var("train_df", train_df)
+def load_train():
+    dfs = [pd.read_csv(f"./input/train_{i}.csv", dtype=dtypes) for i in range(10)]
+    return pd.concat(dfs, ignore_index=True)
+
+train_df = skrub.var("train_df", load_train()).skb.subsample(n=100)
 
 # --- Prepare the data ---
 drop_cols = [
@@ -31,37 +34,41 @@ drop_cols = [
 X = train_df.drop(drop_cols, axis=1).skb.mark_as_X()
 y = train_df[["team_A_scoring_within_10sec", "team_B_scoring_within_10sec"]].skb.mark_as_y()
 
-# --- Model for team A ---
+# --- Model definitions ---
 model_A = lgb.LGBMClassifier()
-pred_A = X.skb.apply(model_A, y=y.iloc[:, 0])
-
-# --- Model for team B ---
 model_B = lgb.LGBMClassifier()
-pred_B = X.skb.apply(model_B, y=y.iloc[:, 1])
+
+# --- Apply models ---
+# Each model gets the first/second column of y as target
+preds_A = X.skb.apply(model_A, y=y.apply(lambda df: df.iloc[:, 0]))
+preds_B = X.skb.apply(model_B, y=y.apply(lambda df: df.iloc[:, 1]))
+
+# --- Combine predictions into a DataFrame ---
+def combine_preds(a, b):
+    return np.column_stack([a, b])
+
+preds_tuple = preds_A.skb.apply_func(lambda a, b: (a, b), b=preds_B)
+preds_combined = preds_tuple.skb.apply_func(combine_preds)
 
 # --- Train/val split ---
-split_A = pred_A.skb.train_test_split(test_size=0.2, random_state=42)
-split_B = pred_B.skb.train_test_split(test_size=0.2, random_state=42)
+splits = preds_combined.skb.train_test_split(test_size=0.2, random_state=42)
 
-# --- Learners ---
-learner_A = pred_A.skb.make_learner()
-learner_B = pred_B.skb.make_learner()
+# --- Create learner ---
+learner = preds_combined.skb.make_learner()
 
 # --- Train ---
-learner_A.fit(split_A["train"])
-learner_B.fit(split_B["train"])
+learner.fit(splits["train"])
 
-# --- Predict on validation set ---
-val_preds_A = learner_A.predict_proba(split_A["test"])[:, 1]
-val_preds_B = learner_B.predict_proba(split_B["test"])[:, 1]
-val_preds = pd.DataFrame(
-    {
-        "team_A_scoring_within_10sec": val_preds_A,
-        "team_B_scoring_within_10sec": val_preds_B,
-    }
+# --- Evaluate ---
+val_preds = learner.predict(splits["test"])
+# y_val is a DataFrame, val_preds is ndarray
+y_val = splits["y_test"]
+val_preds_df = pd.DataFrame(
+    val_preds,
+    columns=["team_A_scoring_within_10sec", "team_B_scoring_within_10sec"],
+    index=y_val.index if hasattr(y_val, "index") else None,
 )
-y_val = split_A["y_test"].reset_index(drop=True)
-val_log_loss = log_loss(y_val, val_preds)
+val_log_loss = log_loss(y_val, val_preds_df)
 print(f"Validation Log Loss: {val_log_loss}")
 
 # --- Predict on test set ---
@@ -73,17 +80,15 @@ test_dtypes = {
 test_df = pd.read_csv("./input/test.csv", dtype=test_dtypes)
 X_test = test_df.drop(["id"], axis=1)
 
-test_preds_A = learner_A.predict_proba({"_skrub_X": X_test})[:, 1]
-test_preds_B = learner_B.predict_proba({"_skrub_X": X_test})[:, 1]
-test_preds = pd.DataFrame(
-    {
-        "team_A_scoring_within_10sec": test_preds_A,
-        "team_B_scoring_within_10sec": test_preds_B,
-    }
+test_preds = learner.predict({"_skrub_X": X_test})
+test_preds_df = pd.DataFrame(
+    test_preds,
+    columns=["team_A_scoring_within_10sec", "team_B_scoring_within_10sec"],
+    index=test_df.index,
 )
 
 # --- Prepare submission ---
-submission = pd.concat([test_df["id"], test_preds], axis=1)
+submission = pd.concat([test_df["id"], test_preds_df], axis=1)
 submission.to_csv("./working/submission.csv", index=False)
 
 t1 = time()

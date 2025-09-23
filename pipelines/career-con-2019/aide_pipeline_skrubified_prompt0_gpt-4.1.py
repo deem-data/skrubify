@@ -7,7 +7,7 @@ import skrub
 # --- Load data ---
 X_train_var = skrub.var("X_train", pd.read_csv("./input/X_train.csv")).skb.subsample(n=100)
 y_train_var = skrub.var("y_train", pd.read_csv("./input/y_train.csv")).skb.subsample(n=100)
-X_test = pd.read_csv("./input/X_test.csv")
+X_test_df = pd.read_csv("./input/X_test.csv")
 
 # --- Merge sensor data with target variable ---
 train_data = X_train_var.merge(y_train_var, on="series_id", how="inner")
@@ -40,8 +40,8 @@ y_pred = learner.predict(splits["test"])
 acc = accuracy_score(splits["y_test"], y_pred)
 print(f"Validation Accuracy: {acc}")
 
-# --- Prepare test features (drop non-feature columns) ---
-test_features = X_test.drop(["row_id", "series_id", "measurement_number"], axis=1)
+# --- Prepare test data ---
+test_features = X_test_df.drop(["row_id", "series_id", "measurement_number"], axis=1)
 test_features_scaled = scaler.transform(test_features)
 
 # --- Predict on test set ---
@@ -49,6 +49,6 @@ test_predictions = learner.predict({"_skrub_X": test_features})
 
 # --- Save predictions ---
 submission = pd.DataFrame(
-    {"series_id": X_test["series_id"], "surface": test_predictions}
+    {"series_id": X_test_df["series_id"], "surface": test_predictions}
 )
 submission.to_csv("./working/submission.csv", index=False)
