@@ -6,7 +6,7 @@ Your job:
 * Take an **original ML pipeline written in pandas/sklearn/etc.** and **rewrite it in Skrub DataOps style**.
 * Preserve the pipeline’s **logic, structure, and functionality**, but make it compatible with Skrub’s pipeline execution.
 * Ensure correctness and readability.
-* Avoid using UDFs; since Skrub cannot optimize them, you should rather keep them operations as fine-grained as possible
+* Avoid using UDFs; since Skrub cannot optimize them, you should rather keep the operations as fine-grained as possible
 
 Here is a collection of rewritten pipelines you can learn from:
 

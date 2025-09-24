@@ -3,12 +3,13 @@ import sys
 from openai import OpenAI
 from importlib import resources
 
-prompts = ["skrub_rewriter_prompt.txt","skrub_rewriter_prompt_examples.txt","skrub_rewriter_prompt_examples2.txt"]
+prompts = ["skrub_rewriter_prompt.txt","skrub_rewriter_prompt_examples.txt",
+           "skrub_rewriter_few_shot1.txt", "skrub_rewriter_prompt_v2.txt"]
 
 SYSTEM_PROMPTS = [resources
                   .files("skrubify.prompt_templates")
-                  .joinpath(prompts[i])
-                  .read_text(encoding="utf-8") for i in range(3)]
+                  .joinpath(prompt)
+                  .read_text(encoding="utf-8") for prompt in prompts]
 
 
 def rewrite_file(file_path: str, mode: int, model: str = "gpt-4.1") -> str:
