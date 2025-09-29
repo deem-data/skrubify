@@ -23,8 +23,12 @@ pred1 = features_scaled.skb.apply(model1, y=labels["label1"])
 model2 = RandomForestClassifier(n_estimators=100, random_state=42)
 pred2 = features_scaled.skb.apply(model2, y=labels["label2"])
 
-# Merge to skrub variables to single
-pred = pred1.skb.apply_func(lambda a,b: np.column_stack((a,b)), b=pred2)
+@skrub.deferred
+def concat(pred1, pred2):
+    return np.column_stack([pred1, pred2])
+
+# Merge skrub outputs to single
+pred = concat(pred1, pred2)
 
 # Split data
 splits = pred.skb.train_test_split(test_size=0.2, random_state=42)

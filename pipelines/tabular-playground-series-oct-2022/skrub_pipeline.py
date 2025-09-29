@@ -58,13 +58,13 @@ preds_A = X.skb.apply(model_A, y=y.iloc[:, 0])
 model_B = lgb.LGBMClassifier(force_col_wise=True)
 preds_B = X.skb.apply(model_B, y=y.iloc[:, 1])
 
-def merge_predictions(a, b):
+def concat(a, b):
     if isinstance(a,pd.DataFrame):
         return pd.concat([a, b], axis=1)
     else:
-        return [a,b]
+        return [a,b] # or (a,b)
 
-preds = preds_A.skb.apply_func(merge_predictions, preds_B)
+preds = preds_A.skb.apply_func(concat, preds_B)
 
 learner = preds.skb.make_learner()
 t3 = time()
