@@ -139,8 +139,7 @@ rf = RandomForestClassifier(n_estimators=100, random_state=42)
 rf.fit(X_train, y_train)
 
 y_pred = rf.predict(X_val)
-accuracy = accuracy_score(y_val, y_pred)
-print(f"Validation Accuracy: {accuracy:.4f}")
+error = error_func(np.exp1p(y_val), np.exp1p(y_pred))
 
 test_data = pd.read_csv("./input/test.csv")
 test_features = feat_eng(test_data)
@@ -174,8 +173,10 @@ X_select_feat = X_feat_eng.drop(["id", "feat1", "feat3","datetime"], axis=1)
 scaler = StandardScaler()
 X_scaled = X_select_feat.skb.apply(scaler)
 
-model = MyModel(random_state=42)
-pred = X_scaled.skb.apply(model, y=y)
+model = MyRegressor(random_state=42)
+pred_log = X_scaled.skb.apply(model, y=y)
+# reverse the initial log
+pred = pred_log.skb.apply_func(np.exp1p)
 
 splits = pred.skb.train_test_split(test_size=0.2, random_state=42)
 
@@ -184,10 +185,10 @@ learner = pred.skb.make_learner()
 learner.fit(splits["train"])
 
 y_pred = learner.predict(splits["test"])
-acc = accuracy_score(splits["y_test"], y_pred)
-print(f"Validation Accuracy: {acc:.4f}")
+# no need to apply the exp1p here, since it is already in the pipeline
+error = error_func(splits["y_test"], y_pred)
 
-test_data = pd.read_csv("./input/test.csv")
+test_data = pd.read_csv("./input/test.csv")  
 y_pred_test = learner.predict({"_skrub_X" : test_data})
 
 submission = pd.DataFrame({"id": test_data["id"], "label": y_pred_test})
