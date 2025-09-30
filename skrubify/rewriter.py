@@ -9,6 +9,7 @@ prompts = [
     "skrub_rewriter_prompt_examples.txt",
     "skrub_rewriter_few_shot.txt",
     "skrub_rewriter_prompt_v2.txt",
+    "skrub_rewriter_few_shot_with_custom_concat.txt",
 ]
 
 

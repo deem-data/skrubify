@@ -230,6 +230,10 @@ submission.to_csv("./working/submission.csv", index=False)
 ```
 Skrub pipeline
 ```python
+import pandas as pd
+import skrub
+import numpy as np # for np.ndarray
+
 data = skrub.var("data", pd.read_csv("./input/train.csv")).skb.subsample(n=100)
 features = data.drop(["label1","label2"], axis=1).skb.mark_as_X()
 labels = data[["label1","label2"]].skb.mark_as_y()
@@ -246,11 +250,12 @@ pred2 = features_encoded.skb.apply(model2, y=labels["label2"])
 # skrub.deferred can be used to make function compatible to skrub
 @skrub.deferred
 def concat(pred1, pred2):
-    # we have to handle two cases, depending how the learner is called
-    # case 1 model predict:
+    # we always have to handle two cases, depending how the learner is called
+    # case 1 learner.predict() or learner.fit():
     if isinstance(pred1, pd.DataFrame) or isinstance(pred1, pd.Series):
         return pd.concat((pred1, pred2))
-    # case 2 model predict_proba:
+    # case 2 learner.predict_proba():
+    # case 2 can be omitted if we know predict_proba is never used()
     elif isinstance(pred1, np.ndarray):
         return pd.DataFrame({
             "lable1": pred1[:, 1],
@@ -274,7 +279,7 @@ loss_score = loss(splits["y_test"], y_pred)
 # Test
 test_data = pd.read_csv("./input/test.csv")
 pred_test = learner.predict_proba({"_skrub_X" : test_data})
-submission = pd.concat((test_data["id"], pred_test))
+submission = pd.concat((test_data["id"], pred_test),axis=1)
 submission.to_csv("./working/submission_skrub.csv", index=False)
 ```
 ONLY INCLUDE VALID PYTHON CODE IN YOUR RESPONSE, NO MARKDOWN OR TEXT.
