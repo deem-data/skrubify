@@ -101,7 +101,8 @@ acc = accuracy_score(splits["y_test"], y_pred)
 
 # Predict on test
 test_data = pd.read_csv("./input/X_test.csv")
-# again the data is injected in the pipeline intermediate marked as X
+# Never create a var from the test data we pass it directly to the pipeline
+# at the intermediate marked as X
 # no explicit data processing needed, since the data pre-processing in included in the pipeline
 y_pred_test = learner.predict({"_skrub_X" : test_data})
 
