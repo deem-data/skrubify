@@ -25,7 +25,20 @@ pred2 = features_scaled.skb.apply(model2, y=labels["label2"])
 
 @skrub.deferred
 def concat(pred1, pred2):
-    return np.column_stack([pred1, pred2])
+    # we have to handle two cases, depending how the learner is called
+    # case 1 model predict:
+    if isinstance(pred1, pd.DataFrame) or isinstance(pred1, pd.Series):
+        return pd.concat((pred1, pred2))
+    # case 2 model predict_proba:
+    elif isinstance(pred1, np.ndarray):
+        return pd.DataFrame({
+            "team_A_scoring_within_10sec": pred1[:, 1],
+            "team_B_scoring_within_10sec": pred2[:, 1],
+        })
+    # default case: tuple always works
+    else:
+        print("concat not implemented for {}".format(type(pred1)))
+        return (pred1, pred2)
 
 # Merge skrub outputs to single
 pred = concat(pred1, pred2)
@@ -38,8 +51,8 @@ learner = pred.skb.make_learner()
 learner.fit(splits["train"])
 
 # Evaluate
-y_pred = learner.predict_proba(splits["test"]) # shape (n,2+2)
-loss = log_loss(splits["y_test"], y_pred[:,[1,3]]) #
+y_pred = learner.predict_proba(splits["test"])
+loss = log_loss(splits["y_test"], y_pred)
 print(f"Validation Accuracy: {loss:.4f}")
 
 # Prepare test data
@@ -47,5 +60,5 @@ test_data = pd.read_csv("./input/test.csv")
 y_pred_test = learner.predict_proba({"_skrub_X" : test_data})
 
 # Predict and save submission
-submission = pd.DataFrame({"id": test_data["id"], "label1_prob": y_pred_test[:,1], "label2_prob": y_pred_test[:,3]})
+submission = pd.concat((test_data["id"], y_pred_test), axis=1)
 submission.to_csv("./working/submission_skrub.csv", index=False)
