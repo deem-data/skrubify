@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-from skrubify.rewriter import rewrite_file
+from rewriter import rewrite_file
 dashed_line = "----------------------------------------------------------"
 tagged_line = "##########################################################"
 
