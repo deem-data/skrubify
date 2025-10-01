@@ -1,5 +1,5 @@
-import pandas as pd
 import skrub
+import pandas as pd
 import lightgbm as lgb
 from sklearn.metrics import log_loss
 from time import time
@@ -43,33 +43,29 @@ pred_A = X.skb.apply(model_A, y=y["team_A_scoring_within_10sec"])
 model_B = lgb.LGBMClassifier()
 pred_B = X.skb.apply(model_B, y=y["team_B_scoring_within_10sec"])
 
-@skrub.deferred
-def combine_preds(pred_A, pred_B):
-    import numpy as np
-    import pandas as pd
-    # pred_A and pred_B are np.ndarray (predict_proba output)
-    # We want the probability for class 1
-    if isinstance(pred_A, np.ndarray):
-        return pd.DataFrame({
-            "team_A_scoring_within_10sec": pred_A[:, 1],
-            "team_B_scoring_within_10sec": pred_B[:, 1],
-        })
-    # fallback for DataFrame/Series
-    return pd.DataFrame({
-        "team_A_scoring_within_10sec": pred_A,
-        "team_B_scoring_within_10sec": pred_B,
-    })
-
-pred = combine_preds(pred_A, pred_B)
+# Concatenate predictions
+pred = pred_A.skb.concat([pred_B])
 
 # Split the data
 splits = pred.skb.train_test_split(test_size=0.2, random_state=42)
+
+# Create learner
 learner = pred.skb.make_learner()
 learner.fit(splits["train"])
 
-# Evaluate
+# Predict on validation set
 val_preds = learner.predict_proba(splits["test"])
-val_log_loss = log_loss(splits["y_test"], val_preds)
+# val_preds shape: (n_samples, 4), columns: [A_0, A_1, B_0, B_1]
+# We want the class 1 probabilities for each model
+val_preds_A = val_preds[:, 1]
+val_preds_B = val_preds[:, 3]
+val_preds_df = pd.DataFrame({
+    "team_A_scoring_within_10sec": val_preds_A,
+    "team_B_scoring_within_10sec": val_preds_B,
+})
+
+# Calculate log loss
+val_log_loss = log_loss(splits["y_test"], val_preds_df)
 print(f"Validation Log Loss: {val_log_loss}")
 
 # Predict on test set
@@ -82,9 +78,15 @@ test_df = pd.read_csv("./input/test.csv", dtype=test_dtypes)
 X_test = test_df.drop(["id"], axis=1)
 
 test_preds = learner.predict_proba({"_skrub_X": X_test})
+test_preds_A = test_preds[:, 1]
+test_preds_B = test_preds[:, 3]
+test_preds_df = pd.DataFrame({
+    "team_A_scoring_within_10sec": test_preds_A,
+    "team_B_scoring_within_10sec": test_preds_B,
+})
 
-submission = pd.concat([test_df["id"], test_preds], axis=1)
+# Prepare submission
+submission = pd.concat([test_df["id"], test_preds_df], axis=1)
 submission.to_csv("./working/submission_skrub.csv", index=False)
-
 t1 = time()
 print("Total time: ", t1 - t0)

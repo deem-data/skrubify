@@ -231,10 +231,6 @@ submission.to_csv("./working/submission.csv", index=False)
 ```
 Skrub pipeline
 ```python
-import pandas as pd
-import skrub
-import numpy as np # for np.ndarray
-
 data = skrub.var("data", pd.read_csv("./input/train.csv")).skb.subsample(n=100)
 features = data.drop(["label1","label2"], axis=1).skb.mark_as_X()
 labels = data[["label1","label2"]].skb.mark_as_y()
@@ -248,27 +244,8 @@ pred1 = features_encoded.skb.apply(model1, y=labels["label1"])
 model2 = Model(random_state=42)
 pred2 = features_encoded.skb.apply(model2, y=labels["label2"])
 
-# skrub.deferred can be used to make function compatible to skrub
-@skrub.deferred
-def concat(pred1, pred2):
-    # we always have to handle two cases, depending on how the learner is called
-    # case 1 learner.predict() or learner.fit():
-    if isinstance(pred1, pd.DataFrame) or isinstance(pred1, pd.Series):
-        # series and frames already have the column names from train set, just call concat
-        return pd.concat([pred1, pred2])
-    # case 2 learner.predict_proba():
-    # case 2 can be omitted if we know predict_proba is never used()
-    elif isinstance(pred1, np.ndarray):
-        return pd.DataFrame({
-            "lable1": pred1[:, 1],
-            "lable2": pred2[:, 1],
-        })
-    # default case: tuple always works
-    else:
-        print("concat not implemented for {}".format(type(pred1)))
-        return (pred1, pred2)
-
-pred = concat(pred1, pred2)
+# merge to single output
+pred = pred1.skb.concat([pred2])
 
 splits = pred.skb.train_test_split(test_size=0.2, random_state=42)
 learner = pred.skb.make_learner()
@@ -276,12 +253,14 @@ learner.fit(splits["train"])
 
 # Evaluate
 y_pred = learner.predict_proba(splits["test"])
-loss_score = loss(splits["y_test"], y_pred)
+# slice out class 1 probabilities
+y_class1_prob = y_pred[:,[1,3]]
+loss_score = loss(splits["y_test"], y_class1_prob)
 
 # Test
 test_data = pd.read_csv("./input/test.csv")
 pred_test = learner.predict_proba({"_skrub_X" : test_data})
-submission = pd.concat((test_data["id"], pred_test),axis=1)
+submission = pd.DataFrame({"id": test_data["id"], "label1": pred_test[:,1], "label2": y_pred_test2[:,3]})
 submission.to_csv("./working/submission_skrub.csv", index=False)
 ```
 ONLY INCLUDE VALID PYTHON CODE IN YOUR RESPONSE, NO MARKDOWN OR TEXT.
