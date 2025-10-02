@@ -7,6 +7,7 @@ prompts = [
     "skrub_rewriter_prompt_v2.txt",
     "skrub_rewriter_few_shot_with_custom_concat.txt",
     "skrub_rewriter_few_shot_with_concat_op.txt",
+    "skrub_rewriter_few_shot_only_skrub.txt"
 ]
 
 

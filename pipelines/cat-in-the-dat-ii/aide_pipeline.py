@@ -31,7 +31,7 @@ X_test[binary_cols + ordinal_cols] = ordinal_encoder.transform(
 
 # One-hot encoding for nominal features with low cardinality
 low_cardinality_nom_cols = [col for col in nominal_cols if X[col].nunique() < 10]
-one_hot_encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+one_hot_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
 X_low_card_nom = pd.DataFrame(
     one_hot_encoder.fit_transform(X[low_cardinality_nom_cols])
 )
