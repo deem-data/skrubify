@@ -5,14 +5,12 @@ Skrub is a Python library for end-to-end ML pipelines and their DataOps feature 
 * Make a Skrub learner object from the plan, which subsequently can be trained, evaluated, tested
 * Core idea: Define the end-to-end pipeline only ONCE (inc. all data preprocessing steps), reuse the pipeline / learner for train / eva / test
 
-
 Your job:
 * Take an original ML pipeline written in pandas/sklearn/etc. and rewrite it in Skrub DataOps style.
 * Preserve the pipeline’s logic, structure, and functionality, but make it compatible with Skrub’s pipeline execution.
-
 # Here are some examples of original pipelines versus Skrub pipelines:
+### Example 1
 
-## Example 1
 **Original pipeline:**
 ```python
 # Load training data
@@ -54,7 +52,6 @@ submission.to_csv("./working/submission.csv", index=False)
 ```
 
 **Skrub pipeline:**
-
 ```python
 import skrub
 
@@ -110,8 +107,8 @@ y_pred_test = learner.predict({"_skrub_X" : test_data})
 submission = pd.DataFrame({"id": test_data["id"], "label": y_pred_test})
 submission.to_csv("./working/submission_skrub.csv", index=False)
 ```
-
 ### Example 2
+
 **Original pipeline:**
 ```python
 train = pd.read_csv("./input/train.csv")
@@ -120,13 +117,13 @@ train_y = train["label"]
 train_y = np.log1p(train_y)
 
 def feat_eng(df):
-	df = df.copy()
-	df["new_feat"] = df["feat1"] * df["feat2"]
-	df["new_feat2"] = np.sin(df["feat3"]*2.0)
-	df["date_time"] = pd.to_datetime(df["datetime"])
-	df["year"] = df["datetime"].dt.year
-	df = df.drop(["id", "feat1", "feat3","date_time"], axis=1)
-	return df
+    df = df.copy()
+    df["new_feat"] = df["feat1"] * df["feat2"]
+    df["new_feat2"] = np.sin(df["feat3"]*2.0)
+    df["date_time"] = pd.to_datetime(df["datetime"])
+    df["year"] = df["datetime"].dt.year
+    df = df.drop(["id", "feat1", "feat3","date_time"], axis=1)
+    return df
 
 train_features = feat_eng(train_features)
 
@@ -150,6 +147,7 @@ y_pred_test = rf.predict(test_features)
 submission = pd.DataFrame({"id": test_data["id"], "label": y_pred_test})
 submission.to_csv("./working/submission.csv", index=False)
 ```
+
 Skrub pipeline:
 ```python
 # subsampling for faster preview
@@ -196,10 +194,11 @@ submission = pd.DataFrame({"id": test_data["id"], "label": y_pred_test})
 submission.to_csv("./working/submission_skrub.csv", index=False)
 ```
 ### Example 3
-Original pipeline
+
+Original pipeline:
 ```python
 data = pd.read_csv("./input/train.csv")
-features = data.drop(["label1","label2"], axis=1)
+features = data.drop(["id","label1","label2"], axis=1)
 labels = data[["label1","label2"]]
 X_train, X_val, y_train, y_val = train_test_split(features, labels, test_size=0.2, random_state=42)
 
@@ -221,7 +220,8 @@ loss_score = loss(y_val, y_pred)
 
 # Prepare test data
 test_data = pd.read_csv("./input/test.csv")
-X_test = scaler.transform(test_data)
+test_data = test_data.drop(["id"]
+X_test = encoder.transform(test_data)
 
 # Predict and save submission
 y_pred_test1 = model1.predict_proba(X_test)
@@ -229,10 +229,11 @@ y_pred_test2 = model2.predict_proba(X_test)
 submission = pd.DataFrame({"id": test_data["id"], "label1": y_pred_test1[1], "label2": y_pred_test2[1]})
 submission.to_csv("./working/submission.csv", index=False)
 ```
-Skrub pipeline
+
+Skrub pipeline:
 ```python
 data = skrub.var("data", pd.read_csv("./input/train.csv")).skb.subsample(n=100)
-features = data.drop(["label1","label2"], axis=1).skb.mark_as_X()
+features = data.drop(["id","label1","label2"], axis=1).skb.mark_as_X()
 labels = data[["label1","label2"]].skb.mark_as_y()
 
 encoder = FeatureEncoder()
@@ -259,9 +260,129 @@ loss_score = loss(splits["y_test"], y_class1_prob)
 
 # Test
 test_data = pd.read_csv("./input/test.csv")
+test_data = test_data.drop(["id"])
 pred_test = learner.predict_proba({"_skrub_X" : test_data})
 submission = pd.DataFrame({"id": test_data["id"], "label1": pred_test[:,1], "label2": y_pred_test2[:,3]})
 submission.to_csv("./working/submission_skrub.csv", index=False)
+```
+### Example 4
+
+Original pipeline
+```python
+(...)
+ordinal_cols = [col for col in X.columns if "ordinal" in col]
+categorical_cols = [col for col in X.columns if "categorical" in col]
+numerical_cols = [col for col in X.columns if "numerical" in col]
+high_cardinality_numerical_cols = [col for col in nominal_cols if X[col].nunique() >= 10]
+low_cardinality_numerical_cols = [col for col in nominal_cols if X[col].nunique() < 10]
+special_cols = ["unused_feat1", "unused_feat2"]
+
+ordinal_encoder = OrdinalEncoder()
+one_hot_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+
+X[ordinal_cols + categorical_cols] = ordinal_encoder.fit_transform(X[ordinal_cols])
+X_low_num_df = pd.DataFrame(one_hot_encoder.fit_transform(X[low_cardinality_numerical_cols]))
+
+for col in high_cardinality_nom_cols:
+    freq_encoder = X[col].value_counts(normalize=True)
+    X[col] = X[col].map(freq_encoder)
+X = pd.concat([X, X_low_num_df], axis=1).drop(low_cardinality_numerical_cols, axis=1)
+(...)
+```
+
+Skrub pipeline:
+```python
+(...)
+# in skrub we can not iterate the columns of X directly, use selectors instead
+ordinal_selector = skrub.selectors.filter_names(lambda name: "ordinal" in name or "categorical" in name)
+low_cardinality_numerical_selector = skrub.selectors.filter(lambda col: "numerical" in col.name and col.nunique() < 10)
+high_cardinality_numerical_selector = skrub.selectors.filter(lambda col: "numerical" in col.name and col.nunique() >= 10)
+# just ignore the unused columns: ["unused_feat1", "unused_feat2"]
+
+# important: the encoder need to implement BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator, TransformerMixin
+class RankEncoder(BaseEstimator, TransformerMixin):
+    def __init__(self, ascending=False):
+        self.vocab_ = None
+        self.ascending = ascending
+
+    def fit(self, X: pd.DataFrame, y=None):
+        # input is always a df with single column
+        col = X.columns[0]
+        freq = X[col].value_counts()
+        self.vocab_ = freq.rank(method='dense', ascending=self.ascending)
+        return self
+
+    def transform(self, X):
+        col = X.columns[0]
+        return pd.DataFrame({col: X[col].map(self.vocab_)})
+
+ordinal_encoder = OrdinalEncoder()
+one_hot_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+freq_encoder = FrequencyEncoder()
+
+# the table vectorizer clones the specified encoder for each column in the selector
+vectorizer = skrub.TableVectorizer(
+    specific_transformers=[
+        (ordinal_encoder, ordinal_selector),
+        (one_hot_encoder, low_cardinality_numerical_selector),
+        (freq_encoder, high_cardinality_numerical_selector)
+    ],
+)
+X_vec = X.skb.apply(vectorizer)
+(...)
+```
+Example 5:
+
+Original pipeline:
+```python
+non_obj_transformer = SimpleImputer(strategy="median")
+from sklearn.pipeline import Pipeline
+obj_transformer = Pipeline(
+    steps=[
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore")),
+    ]
+)
+
+# Bundle preprocessing for numerical and categorical data
+pre = ColumnTransformer(
+    transformers=[
+        ("obj", numerical_transformer, X.select_dtypes(exclude=["object"]).columns),
+        ("non_obj", categorical_transformer, X.select_dtypes(include=["object"]).columns),
+    ]
+)
+
+model = Model()
+my_pipeline = Pipeline(steps=[("preprocessor", pre), ("model", model)])
+```
+
+```python
+(...)
+non_obj_transformer = SimpleImputer(strategy="median")
+# we need the standard sklearn pipeline to fuse imputer and encoder to single encoder, s.t. we can pass it to the TabelVectorizer
+from sklearn.pipeline import Pipeline
+obj_transformer = Pipeline(
+    steps=[
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore")),
+    ]
+)
+
+obj_selector = skrub.selectors.filter(lambda col: col.dtype == "object")
+non_obj_selector = skrub.selectors.filter(lambda col: col.dtype != "object")
+
+vectorizer = skrub.TableVectorizer(
+    specific_transformers=[
+        (non_obj_transformer, non_obj_selector),
+        (obj_transformer, obj_selector)
+    ],
+)
+model = Model()
+# no need for pipeline here, since of DataOps native plan building
+X_vec = X.skb.apply(vectorizer)
+pred = X_vec.skb.apply(model)
+(...)
 ```
 ONLY INCLUDE VALID PYTHON CODE IN YOUR RESPONSE, NO MARKDOWN OR TEXT.
 DONT USE EMOJIS IN THE COMMENTS IN THE CODE.
