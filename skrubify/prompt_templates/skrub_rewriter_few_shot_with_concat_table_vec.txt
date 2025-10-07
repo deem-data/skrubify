@@ -321,7 +321,9 @@ ordinal_encoder = OrdinalEncoder()
 one_hot_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
 freq_encoder = FrequencyEncoder()
 
-# the table vectorizer clones the specified encoder for each column in the selector
+# skrub's table vectorizer is a high level operator which automatically encodes features based on heuristics
+# numeric values are by default pass through
+# with the specific_transformers field, we can pass specific encoders for the user defined columns
 vectorizer = skrub.TableVectorizer(
     specific_transformers=[
         (ordinal_encoder, ordinal_selector),
@@ -357,30 +359,24 @@ model = Model()
 my_pipeline = Pipeline(steps=[("preprocessor", pre), ("model", model)])
 ```
 
+Skrub pipeline:
 ```python
 (...)
-non_obj_transformer = SimpleImputer(strategy="median")
-# we need the standard sklearn pipeline to fuse imputer and encoder to single encoder, s.t. we can pass it to the TabelVectorizer
-from sklearn.pipeline import Pipeline
-obj_transformer = Pipeline(
-    steps=[
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("onehot", OneHotEncoder(handle_unknown="ignore")),
-    ]
-)
+non_obj_selector = skrub.selectors.filter(lambda col: col.dtype != "object")
+non_obj_imputer = SimpleImputer(strategy="median")
+X_non_obj = X.skb.select(non_obj_selector)
+X_non_obj_imputed = X_non_obj.skb.apply(non_obj_imputer)
 
 obj_selector = skrub.selectors.filter(lambda col: col.dtype == "object")
-non_obj_selector = skrub.selectors.filter(lambda col: col.dtype != "object")
+obj_imputer = SimpleImputer(strategy="most_frequent")
+obj_encoder = OneHotEncoder(handle_unknown="ignore",sparse_output=False) # skrub only works on dense outputs
+X_obj = X.skub.select(obj_selector)
+X_obj_imputed = X_obj.skb.apply(obj_imputer)
+X_obj_vec = X_obj_imputed.skb.apply(encoder)
 
-vectorizer = skrub.TableVectorizer(
-    specific_transformers=[
-        (non_obj_transformer, non_obj_selector),
-        (obj_transformer, obj_selector)
-    ],
-)
+X_vec = X_non_obj_imputed.skb.concat([X_obj_vec], axis=1)
+
 model = Model()
-# no need for pipeline here, since of DataOps native plan building
-X_vec = X.skb.apply(vectorizer)
 pred = X_vec.skb.apply(model)
 (...)
 ```

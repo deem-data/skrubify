@@ -47,5 +47,10 @@ class Skrubify:
         response = self.gcp_client.models.generate_content(
             model=model,
             contents=prompt,
+            config={"temperature":0.1}
         )
-        return response.text
+        # strip markdown code block markers
+        text = response.text
+        if text.startswith("```python"):
+            text = text[len("```python"):-len("```")].strip()
+        return text

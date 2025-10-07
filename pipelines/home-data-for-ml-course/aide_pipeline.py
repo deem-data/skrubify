@@ -36,7 +36,7 @@ preprocessor = ColumnTransformer(
 )
 
 # Define the model
-model = GradientBoostingRegressor()
+model = GradientBoostingRegressor(random_state=42)
 
 # Bundle preprocessing and modeling code in a pipeline
 my_pipeline = Pipeline(steps=[("preprocessor", preprocessor), ("model", model)])
@@ -53,7 +53,7 @@ my_pipeline.fit(X_train, np.log(y_train))
 preds = my_pipeline.predict(X_valid)
 
 # Evaluate the model
-score = mean_squared_error(np.log(y_valid), preds, squared=False)
+score = np.sqrt(mean_squared_error(y_valid, np.exp(preds)))
 print("RMSE:", score)
 
 # Preprocessing of test data, fit model
