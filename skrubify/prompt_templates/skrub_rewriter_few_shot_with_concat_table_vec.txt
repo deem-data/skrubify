@@ -280,13 +280,14 @@ special_cols = ["unused_feat1", "unused_feat2"]
 ordinal_encoder = OrdinalEncoder()
 one_hot_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
 
-X[ordinal_cols + categorical_cols] = ordinal_encoder.fit_transform(X[ordinal_cols])
+X[ordinal_cols + categorical_cols] = ordinal_encoder.fit_transform(X[ordinal_cols+categorical_cols])
 X_low_num_df = pd.DataFrame(one_hot_encoder.fit_transform(X[low_cardinality_numerical_cols]))
 
 for col in high_cardinality_nom_cols:
-    freq_encoder = X[col].value_counts(normalize=True)
+    counts = X[col].value_counts()
+    vocab = counts.rank(method='dense', ascending=self.ascending)
     X[col] = X[col].map(freq_encoder)
-X = pd.concat([X, X_low_num_df], axis=1).drop(low_cardinality_numerical_cols, axis=1)
+X_vec = pd.concat([X, X_low_num_df], axis=1).drop(low_cardinality_numerical_cols, axis=1)
 (...)
 ```
 
@@ -297,7 +298,12 @@ Skrub pipeline:
 ordinal_selector = skrub.selectors.filter_names(lambda name: "ordinal" in name or "categorical" in name)
 low_cardinality_numerical_selector = skrub.selectors.filter(lambda col: "numerical" in col.name and col.nunique() < 10)
 high_cardinality_numerical_selector = skrub.selectors.filter(lambda col: "numerical" in col.name and col.nunique() >= 10)
-# just ignore the unused columns: ["unused_feat1", "unused_feat2"]
+
+cat_cols = X.skb.select(ordinal_selector)
+cat_cols_vec = cat_cols.skb.apply(OrdinalEncoder()  )
+
+low_card_cols = X.skb.select(low_cardinality_numerical_selector)
+low_card_cols_vec = low_card_cols.skb.apply(OneHotEncoder(handle_unknown="ignore", sparse_output=False))
 
 # important: the encoder need to implement BaseEstimator, TransformerMixin
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -317,21 +323,11 @@ class RankEncoder(BaseEstimator, TransformerMixin):
         col = X.columns[0]
         return pd.DataFrame({col: X[col].map(self.vocab_)})
 
-ordinal_encoder = OrdinalEncoder()
-one_hot_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
-freq_encoder = FrequencyEncoder()
-
-# skrub's table vectorizer is a high level operator which automatically encodes features based on heuristics
-# numeric values are by default pass through
-# with the specific_transformers field, we can pass specific encoders for the user defined columns
-vectorizer = skrub.TableVectorizer(
-    specific_transformers=[
-        (ordinal_encoder, ordinal_selector),
-        (one_hot_encoder, low_cardinality_numerical_selector),
-        (freq_encoder, high_cardinality_numerical_selector)
-    ],
-)
-X_vec = X.skb.apply(vectorizer)
+high_card_cols = X.skb.select(high_cardinality_numerical_selector)
+# wrapping the rank encoder in sklearn estimators eliminates the for loop, since skrub automatically broadcasts the encoder to all columns
+high_card_cols_vec = high_card_cols.skb.apply(RankEncoder())
+# ignore the unsued columns in special_cols, since there were not used in the orignal pipeline
+X_vec = cat_cols_vec.skb.concat([low_card_cols_vec, high_card_cols_vec],axis=1)
 (...)
 ```
 Example 5:
