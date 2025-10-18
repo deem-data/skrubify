@@ -41,7 +41,7 @@ X_processed = X_num_imputed.skb.concat([X_cat_encoded], axis=1)
 # Model
 model = GradientBoostingRegressor(random_state=42)
 pred_log = X_processed.skb.apply(model, y=y_log)
-pred = pred_log.skb.apply_func(lambda x: x if isinstance(x, GradientBoostingRegressor) else np.exp(x))
+pred = pred_log.skb.apply_func(lambda x, mode: np.exp(x) if mode == "transform" or mode mode == "predict" else x, skrub.eval_mode())
 
 # Split data
 splits = pred.skb.train_test_split(test_size=0.2, random_state=0)
