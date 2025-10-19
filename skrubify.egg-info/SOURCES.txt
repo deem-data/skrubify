@@ -1,0 +1,9 @@
+pyproject.toml
+setup.py
+skrubify/__init__.py
+skrubify/load_prompts.py
+skrubify/skrubify_rewriter.py
+skrubify.egg-info/PKG-INFO
+skrubify.egg-info/SOURCES.txt
+skrubify.egg-info/dependency_links.txt
+skrubify.egg-info/top_level.txt
