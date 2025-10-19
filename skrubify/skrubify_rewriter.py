@@ -1,5 +1,6 @@
 import os
 import time
+import ast
 from dotenv import load_dotenv
 from openai import OpenAI
 from google import genai
@@ -14,8 +15,10 @@ class Skrubify:
         self.gcp_client = genai.Client()
         self.SYSTEM_PROMPTS = load_prompts()
         self.mode = 5
+        self.last_orginal_pipe = None
 
     def rewrite(self, pipeline, model, mode):
+        self.last_orginal_pipe = pipeline
         t0 = time.time()
         user_input = f"Rewrite this pipeline:\n\n```python\n{pipeline}\n```"
         if model.startswith("gpt"):
@@ -25,6 +28,13 @@ class Skrubify:
         else:
             print("Cant find model provider for:", model)
             response = "EMPTY"
+        try:
+            ast.parse(response)
+            compile(response, "<string>", "exec")
+            print("✅ Code parses and compiles correctly.")
+        except SyntaxError as e:
+            print(f"❌ SyntaxError: {e}")
+            exit(1)
         t1 = time.time()
         print(f"LLM inference time: {t1 - t0:.2f} seconds")
         return response

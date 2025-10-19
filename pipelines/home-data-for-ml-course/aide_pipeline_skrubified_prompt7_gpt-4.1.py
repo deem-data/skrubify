@@ -42,6 +42,8 @@ X_processed = X_num_imputed.skb.concat([X_cat_encoded], axis=1)
 model = GradientBoostingRegressor(random_state=42)
 pred_log = X_processed.skb.apply(model, y=y_log)
 pred = pred_log.skb.apply_func(lambda x, mode: np.exp(x) if mode == "transform" or mode == "predict" else x, skrub.eval_mode())
+pred = pred.skb.set_name("Reverse log")
+pred.skb.draw_graph().open()
 
 # Split data
 splits = pred.skb.train_test_split(test_size=0.2, random_state=0)

@@ -17,7 +17,7 @@ Your job:
 data = pd.read_csv("./input/train.csv")
 
 # Separate features / labels
-features = data.drop("label", axis=1)
+features = data.drop(["Id", "label"], axis=1)
 labels = data["label"]
 
 # Feature engineering
@@ -42,12 +42,12 @@ accuracy = accuracy_score(y_val, y_pred)
 # Prepare test data
 test_data = pd.read_csv("./input/X_test.csv")
 test_data["new_feat"] = test_data["feat1"] * test_data["feat2"]
-X_test = test_data.drop(["id", "feat1", "feat3"], axis=1)
+X_test = test_data.drop(["Id", "feat1", "feat3"], axis=1)
 X_test = scaler.transform(X_test)
 
 # Predict and save submission
 y_pred_test = rf.predict(X_test)
-submission = pd.DataFrame({"id": test_data["id"], "label": y_pred_test})
+submission = pd.DataFrame({"Id": test_data["Id"], "label": y_pred_test})
 submission.to_csv("./working/submission.csv", index=False)
 ```
 
@@ -65,13 +65,13 @@ data_var = data_var.skb.subsample(n=100)
 
 # Add the operation for separating features / labels
 y = data["label"].skb.mark_as_y()
-X = data.drop("label", axis=1).skb.mark_as_X()
+X = data.drop(["Id","label"], axis=1).skb.mark_as_X()
 # The intermediate that is marked as X is important since it will be the entry point to final learner
 
 # Add the feature engineering operation to the plan
 # Use assign method instead directly assigning column
 X_feat_eng = X.assign(new_feat=X["feat1"] * X["feat2"])
-X_select_feat = X_feat_eng.drop(["id", "feat1", "feat3"], axis=1)
+X_select_feat = X_feat_eng.drop(["feat1", "feat3"], axis=1)
 
 # Add scaling operation
 scaler = StandardScaler()
@@ -97,14 +97,17 @@ y_pred = learner.predict(splits["test"])
 acc = accuracy_score(splits["y_test"], y_pred)
 
 # Predict on test
+
+# Never create a var from the test data we
 test_data = pd.read_csv("./input/X_test.csv")
-# Never create a var from the test data we pass it directly to the pipeline
-# at the intermediate marked as X
-# no explicit data processing needed, since the data pre-processing in included in the pipeline
-y_pred_test = learner.predict({"_skrub_X" : test_data})
+
+# only drop the id field, NEVER do explicit data processing on the test data, since the data pre-processing is completely included in the pipeline
+test_data_ = test_data.drop("Id", axis=1)
+# pass it directly to the pipeline at the intermediate marked as X, all the pre-processing (inc. feature engineering) steps are automatically executed during predict as well
+y_pred_test = learner.predict({"_skrub_X" : test_data_})
 
 # --- Save submission ---
-submission = pd.DataFrame({"id": test_data["id"], "label": y_pred_test})
+submission = pd.DataFrame({"Id": test_data["Id"], "label": y_pred_test})
 submission.to_csv("./working/submission_skrub.csv", index=False)
 ```
 ### Example 2
@@ -174,8 +177,10 @@ X_scaled = X_select_feat.skb.apply(scaler)
 
 model = MyRegressor(random_state=42)
 pred_log = X_scaled.skb.apply(model, y=y)
-# reverse the initial log
-pred = pred_log.skb.apply_func(np.exp1p)
+# Inverse log1p for predictions (only in predict mode)
+mode = skrub.eval_mode()
+function = mode.skb.match({"predict": np.expm1}, default=(lambda x: x))
+pred = pred_log.skb.apply_func(function)
 
 splits = pred.skb.train_test_split(test_size=0.2, random_state=42)
 
@@ -188,9 +193,9 @@ y_pred = learner.predict(splits["test"])
 error = error_func(splits["y_test"], y_pred)
 
 test_data = pd.read_csv("./input/test.csv")
-y_pred_test = learner.predict({"_skrub_X" : test_data})
+y_pred_test = learner.predict({"_skrub_X" : test_data.drop("Id")})
 
-submission = pd.DataFrame({"id": test_data["id"], "label": y_pred_test})
+submission = pd.DataFrame({"Id": test_data["Id"], "label": y_pred_test})
 submission.to_csv("./working/submission_skrub.csv", index=False)
 ```
 ### Example 3
@@ -233,7 +238,7 @@ submission.to_csv("./working/submission.csv", index=False)
 Skrub pipeline:
 ```python
 data = skrub.var("data", pd.read_csv("./input/train.csv")).skb.subsample(n=100)
-features = data.drop(["id","label1","label2"], axis=1).skb.mark_as_X()
+features = data.drop(["Id","label1","label2"], axis=1).skb.mark_as_X()
 labels = data[["label1","label2"]].skb.mark_as_y()
 
 encoder = FeatureEncoder()
@@ -246,7 +251,7 @@ model2 = Model(random_state=42)
 pred2 = features_encoded.skb.apply(model2, y=labels["label2"])
 
 # merge to single output
-pred = pred1.skb.concat([pred2])
+pred = pred1.skb.concat([pred2], axis=1)
 
 splits = pred.skb.train_test_split(test_size=0.2, random_state=42)
 learner = pred.skb.make_learner()
@@ -260,9 +265,8 @@ loss_score = loss(splits["y_test"], y_class1_prob)
 
 # Test
 test_data = pd.read_csv("./input/test.csv")
-test_data = test_data.drop(["id"])
-pred_test = learner.predict_proba({"_skrub_X" : test_data})
-submission = pd.DataFrame({"id": test_data["id"], "label1": pred_test[:,1], "label2": y_pred_test2[:,3]})
+pred_test = learner.predict_proba({"_skrub_X" : test_data.drop(["Id"]) })
+submission = pd.DataFrame({"Id": test_data["Id"], "label1": pred_test[:,1], "label2": y_pred_test2[:,3]})
 submission.to_csv("./working/submission_skrub.csv", index=False)
 ```
 ### Example 4
@@ -330,7 +334,7 @@ high_card_cols_vec = high_card_cols.skb.apply(RankEncoder())
 X_vec = cat_cols_vec.skb.concat([low_card_cols_vec, high_card_cols_vec],axis=1)
 (...)
 ```
-Example 5:
+### Example 5:
 
 Original pipeline:
 ```python
@@ -376,5 +380,103 @@ model = Model()
 pred = X_vec.skb.apply(model)
 (...)
 ```
+### Example 6:
+
+Original pipeline:
+```python
+X = data.drop("label", axis=1)
+y = data["label"]
+cv = KFold(n_splits=5, shuffle=True, random_state=123)
+oof_preds = np.zeros(len(X))
+for train_idx, val_idx in cv.split(X):
+    X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
+    y_tr, y_val = y.iloc[train_idx], y.iloc[val_idx]
+    model = MyModel(random_state=123)
+    model.fit(X_tr, y_tr)
+    oof_preds[val_idx] = model.predict(X_val)
+rmse = np.sqrt(mean_squared_error(y, oof_preds))
+final_model = MyModel(random_state=42)
+final_model.fit(X, y)
+test_preds = final_model.predict(X_test)
+
+```
+
+Skrub pipeline:
+```python
+data = skrub.var("data", data)
+y = data["label"].skb.mark_as_y()
+X = data.drop("label", axis=1).skb.mark_as_X()
+model = MyModel(random_state=123)
+pred = X.skb.apply(model, y=y)
+
+learner = pred.skb.make_learner()
+data = pred.skb.get_data()
+
+# important: sklearn.metrics's make scorer from loss function
+scorer = make_scorer(mean_squared_error)
+cv = KFold(n_splits=5, shuffle=True, random_state=42)
+
+scores = skrub.cross_validate(learner, data_, cv=cv, scoring=scorer,return_train_score=True)
+
+rmse = np.sqrt(np.mean(scores["test_score"]))
+# final model / fit the learner on the whole dataset
+learner.fit(data)
+test_preds = learner.predict(({"_skrub_X" : test_data})
+```
+### Example 7
+
+Original Pipeline:
+```python
+(...)
+for col in X.columns:
+    if X[col].dtype == "object":
+        X[col] = X[col].fillna("Missing").astype("category").cat.codes
+    else:
+        med = X[col].median()
+        X[col] = X[col].fillna(med)
+(...)
+```
+
+Skrub Pipeline:
+```python
+obj_selector = skrub.selectors.filter(lambda col: col.dtype == "object")
+num_selector = skrub.selectors.filter(lambda col: col.dtype != "object")
+X_obj = X.skb.select(obj_selector)
+X_num = X.skb.select(num_selector)
+
+# use sklearn imputer and encoder instead
+X_obj_imp = X_obj.skb.apply(SimpleImputer(strategy="constant", fill_value="Missing"))
+X_obj_enc = X_obj_imp.skb.apply(OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1))
+
+X_num_enc = X_num.skb.apply(SimpleImputer(strategy="median"))
+X_enc = X_num_enc.skb.concat([X_obj_enc], axis=1)
+```
+### Example 8
+
+Original Pipeline:
+```python
+skewness = X[numeric_feats].skew()
+skewed_feats = skewness[skewness.abs() > 0.75].index.tolist()
+for col in skewed_feats:
+    X[col] = np.log1p(X[col])
+    X_test[col] = np.log1p(X_test[col])
+```
+
+Skrub Pipeline:
+```python
+X_num = X.skb.select(num_selector)
+skewness = X_num.skew()
+skewed = skewness.abs() > 0.75
+skewed_cols = skewness[skewed].index.tolist()
+X_skewed = X_num.skb.select(skewed_feats)
+# normal pandas apply to broadcast the log to all cols, not skb.apply which is for estimators!
+X_skewed_log = X_skewed.apply(np.log1p)
+
+not_skewed = ~skewed
+not_skewed_cols = skewness[not_skewed].index.tolist()
+X_not_skewed = X_num.skb.select(not_skewed_cols)
+X_num = X_not_skewed.skb.concat([X_skewed_log], axis=1)
+```
+
 ONLY INCLUDE VALID PYTHON CODE IN YOUR RESPONSE, NO MARKDOWN OR TEXT.
 DONT USE EMOJIS IN THE COMMENTS IN THE CODE.

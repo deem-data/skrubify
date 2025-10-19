@@ -36,6 +36,8 @@ X_final = X_month_cos.drop(["datetime", "casual", "registered"], axis=1, errors=
 model = LGBMRegressor(n_estimators=100, learning_rate=0.05, random_state=42)
 pred_log = X_final.skb.apply(model, y=y_log)
 pred = pred_log.skb.apply_func(lambda x: x if isinstance(x,LGBMRegressor) else np.expm1(x))
+pred = pred.skb.set_name("Reverse log")
+pred.skb.draw_graph().open()
 
 # Split for validation
 splits = pred.skb.train_test_split(test_size=0.2, random_state=42)
