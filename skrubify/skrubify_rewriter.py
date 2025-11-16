@@ -14,7 +14,7 @@ class Skrubify:
         self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.gcp_client = genai.Client()
         self.SYSTEM_PROMPTS = load_prompts()
-        self.mode = 5
+        self.mode = 7
         self.last_orginal_pipe = None
 
     def rewrite(self, pipeline, model, mode):

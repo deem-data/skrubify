@@ -61,7 +61,7 @@ data = pd.read_csv("./input/train.csv")
 # DataOps plan always begins with a variable, here the function tracking starts
 data_var = skrub.var("data", data)
 # Subsampling for faster preview computation, this step is automatically skipped in the final pipeline
-data_var = data_var.skb.subsample(n=100)
+data_var = data_var.skb.subsample(n=1000)
 
 # Add the operation for separating features / labels
 y = data["label"].skb.mark_as_y()
@@ -154,7 +154,7 @@ submission.to_csv("./working/submission.csv", index=False)
 Skrub pipeline:
 ```python
 # subsampling for faster preview
-data = skrub.var("data", pd.read_csv("./input/train.csv")).skb.subsample(n=100)
+data = skrub.var("data", pd.read_csv("./input/train.csv")).skb.subsample(n=1000)
 
 y = data["label"].skb.mark_as_y()
 # train_y = np.log1p(train_y) can expressed as:
@@ -237,7 +237,7 @@ submission.to_csv("./working/submission.csv", index=False)
 
 Skrub pipeline:
 ```python
-data = skrub.var("data", pd.read_csv("./input/train.csv")).skb.subsample(n=100)
+data = skrub.var("data", pd.read_csv("./input/train.csv")).skb.subsample(n=1000)
 features = data.drop(["Id","label1","label2"], axis=1).skb.mark_as_X()
 labels = data[["label1","label2"]].skb.mark_as_y()
 
@@ -427,6 +427,23 @@ test_preds = learner.predict(({"_skrub_X" : test_data})
 
 Original Pipeline:
 ```python
+y_pred_proba = model.predict_proba(X_test)
+scores = my_scorer(y_test, y_pred_proba[:,1])
+```
+
+Skrub Pipeline:
+```python
+pred = model.skb.apply(model)
+learner = pred.skb.make_learner()
+# make_scorer slices automatically the second column of the output for binary classification
+# so does not need to be specified manually
+scorer = make_scorer(my_scorer, needs_proba=True)
+scores = skrub.cross_validate(learner, data_, cv=cv, scoring=scorer,return_train_score=True)
+```
+### Example 8
+
+Original Pipeline:
+```python
 (...)
 for col in X.columns:
     if X[col].dtype == "object":
@@ -451,7 +468,7 @@ X_obj_enc = X_obj_imp.skb.apply(OrdinalEncoder(handle_unknown="use_encoded_value
 X_num_enc = X_num.skb.apply(SimpleImputer(strategy="median"))
 X_enc = X_num_enc.skb.concat([X_obj_enc], axis=1)
 ```
-### Example 8
+### Example 9
 
 Original Pipeline:
 ```python
@@ -476,6 +493,25 @@ not_skewed = ~skewed
 not_skewed_cols = skewness[not_skewed].index.tolist()
 X_not_skewed = X_num.skb.select(not_skewed_cols)
 X_num = X_not_skewed.skb.concat([X_skewed_log], axis=1)
+```
+
+### Example 10
+
+Original Pipeline:
+```python
+data = pd.read_csv("data.csv")
+labels = pd.read_csv("./input/train_labels_downsampled.csv")
+df = data.merge(labels, on="ID", how="inner")
+```
+
+Skrub Pipeline:
+```python
+data = pd.read_csv("data.csv")
+data = skrub.var("data", data)
+labels = pd.read_csv("./input/train_labels_downsampled.csv")
+labels = skrub.var("labels", labels)
+df = data.merge(labels, on="ID", how="inner")
+
 ```
 
 ONLY INCLUDE VALID PYTHON CODE IN YOUR RESPONSE, NO MARKDOWN OR TEXT.

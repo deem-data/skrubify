@@ -1,7 +1,7 @@
 import os
 import argparse
 from skrubify import Skrubify
-default_prompt_mode = 5
+default_prompt_mode = 7
 
 def main():
     parser = argparse.ArgumentParser(
